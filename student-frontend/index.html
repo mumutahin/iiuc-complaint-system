@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Submit and track campus facility complaints at International Islamic University Chittagong." />
+    <title>IIUC Complaint Portal — Student</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+
+    <script>
+      // Runs BEFORE React mounts so there's no flash of the wrong theme
+      // on load. Reads the same localStorage key the ThemeContext uses.
+      (function () {
+        try {
+          var stored = localStorage.getItem('iiuc-theme');
+          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var isDark = stored ? stored === 'dark' : prefersDark;
+          if (isDark) document.documentElement.classList.add('dark');
+        } catch (e) {
+          /* localStorage unavailable (private browsing) — default to light, harmless */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
