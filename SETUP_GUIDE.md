@@ -271,25 +271,3 @@ Now that you have three real URLs:
 | Can't log into admin app at all | Account is still `role: student` | Run `npm run make-admin` (first superadmin) or have an existing superadmin promote you from **Users**. |
 | Real-time toast notifications don't appear | Socket didn't connect | Check `VITE_SOCKET_URL` matches your backend's actual URL, and that the backend redeployed after you set `CORS_ORIGINS`. |
 | Render free instance is slow on first load | Expected — free tier spins down after 15 min idle | Not a bug; "warm it up" before a demo (see §8). |
-
----
-
-## 12. What's intentionally *not* included
-
-To keep the codebase reliable for a solo/beginner deploy, I left a few
-of the master prompt's "extra" ideas out rather than build them on
-fragile foundations. All are addable later without restructuring
-anything:
-
-- **Bulk delete / bulk reassign** — bulk *status* update is built (on
-  the admin Complaints page); bulk delete/reassign would need the same
-  checkbox-selection UI, just more actions wired to it.
-- **Department-comparison analytics** (side-by-side dept charts) — the
-  Analytics page already supports filtering by one department at a
-  time; a comparison view would layer multiple `getOverview` calls.
-- **CSV export** — PDF export is built; CSV would be a simple
-  client-side addition (convert the already-fetched JSON to CSV,
-  no new backend route needed).
-
-If you want any of these for extra marks, ask and I'll add them into
-the existing structure.
