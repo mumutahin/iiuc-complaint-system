@@ -1,0 +1,8 @@
+# Each of backend/, student-frontend/, and admin-frontend/ also has its
+# own .gitignore (node_modules, .env, dist/build output for that
+# project). This root one just catches stray junk at the repo root.
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
