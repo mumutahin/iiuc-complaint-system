@@ -1,0 +1,6 @@
+{
+  "name": "iiuc-complaint-shared",
+  "private": true,
+  "type": "module",
+  "description": "Framework-agnostic constants/validators/formatters shared by backend, student-frontend, and admin-frontend. Not installed via npm — imported directly by relative path."
+}

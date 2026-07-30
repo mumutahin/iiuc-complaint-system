@@ -1,0 +1,34 @@
+{
+  "name": "iiuc-complaint-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "IIUC Campus Complaint Management System — backend API (Express + MongoDB + Socket.io)",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "dev": "nodemon server.js",
+    "start": "node server.js",
+    "make-admin": "node scripts/setUserRole.js",
+    "check": "node --check server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "mongoose": "^8.9.0",
+    "socket.io": "^4.8.1",
+    "cors": "^2.8.5",
+    "helmet": "^8.0.0",
+    "express-rate-limit": "^7.4.1",
+    "compression": "^1.7.5",
+    "dotenv": "^16.4.7",
+    "multer": "^2.0.0",
+    "cloudinary": "^2.5.1",
+    "firebase-admin": "^13.0.2",
+    "nodemailer": "^6.9.16",
+    "pdfkit": "^0.15.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
