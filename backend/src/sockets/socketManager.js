@@ -1,7 +1,7 @@
 // Default-import + destructure, not `import { Server } from 'socket.io'` —
 // see the comment in ../config/cloudinary.js for why the named-import form
 // is unsafe under plain Node ESM for CJS packages like this one.
-import socketIO from 'socket.io';
+import { Server } from 'socket.io';
 import { getFirebaseAdmin } from '../config/firebaseAdmin.js';
 import { User } from '../models/User.js';
 
@@ -48,10 +48,6 @@ export function initSocket(httpServer, corsOrigins) {
         socket.join(`dept:${socket.user.departmentId}`);
       }
     }
-
-    socket.on('disconnect', () => {
-      // No-op: rooms are cleaned up automatically by socket.io on disconnect.
-    });
   });
 
   return io;
