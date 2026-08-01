@@ -307,16 +307,27 @@ export const updateComplaint = asyncHandler(async (req, res) => {
 });
 
 // ---------------------------------------------------------------------
-// DELETE /api/complaints/:id  (owner, only while Pending)
+// DELETE /api/complaints/:id
+//   - student: only their own, only while Pending
+//   - staff (admin/superadmin): any complaint in scope, any status —
+//     lets them clear out spam/nonsense complaints regardless of where
+//     they are in the workflow
 // ---------------------------------------------------------------------
 export const deleteComplaint = asyncHandler(async (req, res) => {
   const complaint = await Complaint.findById(req.params.id);
   if (!complaint) throw new ApiError(404, 'Complaint not found.', 'NOT_FOUND');
-  if (String(complaint.studentId) !== String(req.user._id)) {
-    throw new ApiError(403, 'You can only delete your own complaints.', 'FORBIDDEN');
-  }
-  if (complaint.status !== 'Pending') {
-    throw new ApiError(409, 'This complaint is already being processed and can no longer be deleted.', 'ALREADY_PROCESSING');
+
+  const isStaff = req.user.role === 'admin' || req.user.role === 'superadmin';
+
+  if (isStaff) {
+    assertStaffCanAccessComplaint(req.user, complaint);
+  } else {
+    if (String(complaint.studentId) !== String(req.user._id)) {
+      throw new ApiError(403, 'You can only delete your own complaints.', 'FORBIDDEN');
+    }
+    if (complaint.status !== 'Pending') {
+      throw new ApiError(409, 'This complaint is already being processed and can no longer be deleted.', 'ALREADY_PROCESSING');
+    }
   }
 
   await deleteImages(complaint.imagePublicIds);
@@ -441,7 +452,7 @@ export const assignComplaint = asyncHandler(async (req, res) => {
 // POST /api/complaints/:id/comments
 // ---------------------------------------------------------------------
 export const addComment = asyncHandler(async (req, res) => {
-  const { text, type } = req.body;
+  const { text, type, parentId } = req.body;
   if (!text || !text.trim()) {
     throw new ApiError(400, 'Comment cannot be empty.', 'VALIDATION_ERROR');
   }
@@ -457,14 +468,25 @@ export const addComment = asyncHandler(async (req, res) => {
   if (!isOwner && !isStaff) throw new ApiError(403, 'You cannot comment on this complaint.', 'FORBIDDEN');
   if (isStaff) assertStaffCanAccessComplaint(req.user, complaint);
 
+  let parentComment = null;
+  if (parentId) {
+    parentComment = complaint.comments.id(parentId);
+    if (!parentComment) throw new ApiError(404, 'The comment you are replying to no longer exists.', 'NOT_FOUND');
+    if (parentComment.parentId) {
+      throw new ApiError(400, 'You can only reply to a top-level comment, not to another reply.', 'VALIDATION_ERROR');
+    }
+  }
+
   const commentType = isStaff && type === 'internal' ? 'internal' : 'public';
-  complaint.comments.push({ authorId: req.user._id, text: text.trim(), type: commentType });
+  complaint.comments.push({ authorId: req.user._id, text: text.trim(), type: commentType, parentId: parentId || null });
   await complaint.save();
 
   // Only notify on PUBLIC comments — an internal admin note shouldn't ping the student.
   if (commentType === 'public') {
     const notifyUserId = isOwner ? complaint.assignedTo : complaint.studentId._id;
+    const notifiedIds = new Set();
     if (notifyUserId) {
+      notifiedIds.add(String(notifyUserId));
       createAndEmit({
         userId: notifyUserId,
         type: 'comment',
@@ -473,10 +495,81 @@ export const addComment = asyncHandler(async (req, res) => {
         complaintId: complaint._id,
       }).catch((err) => console.error('[notify] comment notify failed:', err.message));
     }
+    // Replying to someone specific? Let them know too, unless they'd
+    // already be notified above or they're replying to themselves.
+    if (parentComment && !notifiedIds.has(String(parentComment.authorId)) && String(parentComment.authorId) !== String(req.user._id)) {
+      createAndEmit({
+        userId: parentComment.authorId,
+        type: 'comment',
+        title: 'New reply',
+        message: `Someone replied to your comment on "${complaint.title}"`,
+        complaintId: complaint._id,
+      }).catch((err) => console.error('[notify] reply notify failed:', err.message));
+    }
   }
 
   const populated = await Complaint.findById(complaint._id).populate(STAFF_POPULATE);
   sendSuccess(res, { statusCode: 201, data: serializeComplaint(populated, req.user), message: 'Comment added.' });
+});
+
+// ---------------------------------------------------------------------
+// PATCH /api/complaints/:id/comments/:commentId  (comment's own author only)
+// ---------------------------------------------------------------------
+export const editComment = asyncHandler(async (req, res) => {
+  const { text } = req.body;
+  if (!text || !text.trim()) {
+    throw new ApiError(400, 'Comment cannot be empty.', 'VALIDATION_ERROR');
+  }
+  if (text.trim().length > LIMITS.COMMENT_MAX) {
+    throw new ApiError(400, `Comment cannot exceed ${LIMITS.COMMENT_MAX} characters.`, 'VALIDATION_ERROR');
+  }
+
+  const complaint = await Complaint.findById(req.params.id);
+  if (!complaint) throw new ApiError(404, 'Complaint not found.', 'NOT_FOUND');
+
+  const comment = complaint.comments.id(req.params.commentId);
+  if (!comment) throw new ApiError(404, 'Comment not found.', 'NOT_FOUND');
+  if (String(comment.authorId) !== String(req.user._id)) {
+    throw new ApiError(403, 'You can only edit your own comments.', 'FORBIDDEN');
+  }
+
+  comment.text = text.trim();
+  comment.editedAt = new Date();
+  await complaint.save();
+
+  const populated = await Complaint.findById(complaint._id).populate(STAFF_POPULATE);
+  sendSuccess(res, { data: serializeComplaint(populated, req.user), message: 'Comment updated.' });
+});
+
+// ---------------------------------------------------------------------
+// DELETE /api/complaints/:id/comments/:commentId
+//   comment's own author, OR staff (dept-scoped) clearing out nonsense.
+//   Deleting a top-level comment also removes any direct replies to it,
+//   since we only support one level of nesting — an orphaned reply to a
+//   comment that no longer exists would be confusing to read.
+// ---------------------------------------------------------------------
+export const deleteComment = asyncHandler(async (req, res) => {
+  const complaint = await Complaint.findById(req.params.id);
+  if (!complaint) throw new ApiError(404, 'Complaint not found.', 'NOT_FOUND');
+
+  const comment = complaint.comments.id(req.params.commentId);
+  if (!comment) throw new ApiError(404, 'Comment not found.', 'NOT_FOUND');
+
+  const isStaff = req.user.role === 'admin' || req.user.role === 'superadmin';
+  const isCommentAuthor = String(comment.authorId) === String(req.user._id);
+  if (!isCommentAuthor && !isStaff) {
+    throw new ApiError(403, 'You can only delete your own comments.', 'FORBIDDEN');
+  }
+  if (isStaff) assertStaffCanAccessComplaint(req.user, complaint);
+
+  const commentId = String(comment._id);
+  complaint.comments = complaint.comments.filter(
+    (cm) => String(cm._id) !== commentId && String(cm.parentId || '') !== commentId
+  );
+  await complaint.save();
+
+  const populated = await Complaint.findById(complaint._id).populate(STAFF_POPULATE);
+  sendSuccess(res, { data: serializeComplaint(populated, req.user), message: 'Comment deleted.' });
 });
 
 // ---------------------------------------------------------------------
