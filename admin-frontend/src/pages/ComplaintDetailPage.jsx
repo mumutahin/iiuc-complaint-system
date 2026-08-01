@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router';
-import { MapPin, UserCheck } from 'lucide-react';
+import { Link, useNavigate, useParams } from 'react-router';
+import { MapPin, UserCheck, Reply, Pencil, Trash2, X, Check } from 'lucide-react';
 import { complaintService } from '../services/adminService.js';
 import { useSocket } from '../context/SocketContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
@@ -9,11 +9,24 @@ import PriorityBadge from '../components/PriorityBadge.jsx';
 import StatusSelect from '../components/StatusSelect.jsx';
 import StatusTimeline from '../components/StatusTimeline.jsx';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
+import Modal from '../components/Modal.jsx';
 import { PRIORITIES, LIMITS } from '../../../shared/constants.js';
 import { formatDate } from '../../../shared/formatters.js';
 
+function groupComments(comments) {
+  const topLevel = comments.filter((c) => !c.parentId);
+  const repliesByParent = new Map();
+  comments.filter((c) => c.parentId).forEach((c) => {
+    const key = String(c.parentId);
+    if (!repliesByParent.has(key)) repliesByParent.set(key, []);
+    repliesByParent.get(key).push(c);
+  });
+  return topLevel.map((c) => ({ ...c, replies: repliesByParent.get(String(c._id)) || [] }));
+}
+
 export default function ComplaintDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { lastNotification } = useSocket();
   const { showToast } = useToast();
 
@@ -28,7 +41,10 @@ export default function ComplaintDetailPage() {
   const [note, setNote] = useState('');
   const [noteType, setNoteType] = useState('internal');
   const [postingNote, setPostingNote] = useState(false);
+  const [replyingTo, setReplyingTo] = useState(null); // { id, authorName } | null
   const [lightboxUrl, setLightboxUrl] = useState(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletingComplaint, setDeletingComplaint] = useState(false);
 
   async function load() {
     try {
@@ -100,13 +116,44 @@ export default function ComplaintDetailPage() {
     if (!note.trim()) return;
     setPostingNote(true);
     try {
-      const { data } = await complaintService.addComment(id, note.trim(), noteType);
+      const { data } = await complaintService.addComment(id, note.trim(), noteType, replyingTo?.id);
       setComplaint(data.data);
       setNote('');
+      setReplyingTo(null);
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
       setPostingNote(false);
+    }
+  }
+
+  async function handleEditComment(commentId, text) {
+    try {
+      const { data } = await complaintService.editComment(id, commentId, text);
+      setComplaint(data.data);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  async function handleDeleteComment(commentId) {
+    try {
+      const { data } = await complaintService.deleteComment(id, commentId);
+      setComplaint(data.data);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  async function handleDeleteComplaint() {
+    setDeletingComplaint(true);
+    try {
+      await complaintService.remove(id);
+      showToast('Complaint deleted.', 'success');
+      navigate('/complaints');
+    } catch (err) {
+      showToast(err.message, 'error');
+      setDeletingComplaint(false);
     }
   }
 
@@ -122,6 +169,8 @@ export default function ComplaintDetailPage() {
       </div>
     );
   }
+
+  const grouped = groupComments(complaint.comments);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
@@ -144,6 +193,15 @@ export default function ComplaintDetailPage() {
                   )}
                 </div>
               </div>
+              {complaint.canDelete && (
+                <button
+                  type="button"
+                  onClick={() => setDeleteOpen(true)}
+                  className="flex shrink-0 items-center gap-1.5 rounded-lg border border-rose-200 px-3 py-1.5 text-sm font-medium text-rose-600 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400 dark:hover:bg-rose-950/30"
+                >
+                  <Trash2 size={14} /> Delete complaint
+                </button>
+              )}
             </div>
 
             <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-ink/75 dark:text-white/70">
@@ -175,29 +233,41 @@ export default function ComplaintDetailPage() {
           <div className="mt-5 rounded-2xl border border-black/8 bg-white p-6 dark:border-white/10 dark:bg-white/[0.03]">
             <h2 className="mb-4 font-display text-base font-semibold text-ink dark:text-white">Notes &amp; comments</h2>
             <div className="space-y-3">
-              {complaint.comments.length === 0 && <p className="text-sm text-ink/50 dark:text-white/40">No comments yet.</p>}
-              {complaint.comments.map((c) => (
-                <div key={c._id} className={`rounded-lg px-3 py-2 ${c.type === 'internal' ? 'bg-accent-500/10' : 'bg-black/[0.03] dark:bg-white/5'}`}>
-                  <div className="flex items-baseline gap-2">
-                    <p className="text-sm font-medium text-ink dark:text-white">{c.author?.name || 'User'}</p>
-                    {c.type === 'internal' && (
-                      <span className="rounded-full bg-accent-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-accent-700 dark:text-accent-300">
-                        Internal
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-0.5 text-sm text-ink/75 dark:text-white/70">{c.text}</p>
+              {grouped.length === 0 && <p className="text-sm text-ink/50 dark:text-white/40">No comments yet.</p>}
+              {grouped.map((c) => (
+                <div key={c._id}>
+                  <AdminCommentRow
+                    comment={c}
+                    onReply={() => { setReplyingTo({ id: c._id, authorName: c.author?.name }); setNoteType(c.type); }}
+                    onEdit={handleEditComment}
+                    onDelete={handleDeleteComment}
+                  />
+                  {c.replies.length > 0 && (
+                    <div className="ml-9 mt-2 space-y-2 border-l-2 border-black/5 pl-3 dark:border-white/10">
+                      {c.replies.map((r) => (
+                        <AdminCommentRow key={r._id} comment={r} onEdit={handleEditComment} onDelete={handleDeleteComment} />
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
 
             <form onSubmit={handlePostNote} className="mt-4 space-y-2">
+              {replyingTo && (
+                <div className="flex items-center justify-between rounded-lg bg-brand-500/10 px-3 py-1.5 text-xs text-brand-700 dark:text-brand-300">
+                  <span>Replying to {replyingTo.authorName || 'this comment'}</span>
+                  <button type="button" onClick={() => setReplyingTo(null)} aria-label="Cancel reply">
+                    <X size={13} />
+                  </button>
+                </div>
+              )}
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={2}
                 maxLength={LIMITS.COMMENT_MAX}
-                placeholder="Add a note…"
+                placeholder={replyingTo ? 'Write a reply…' : 'Add a note…'}
                 className="w-full resize-none rounded-lg border border-black/10 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus:border-brand-400 dark:border-white/10 dark:bg-white/5 dark:text-white"
               />
               <div className="flex items-center justify-between gap-2">
@@ -303,6 +373,30 @@ export default function ComplaintDetailPage() {
         </div>
       </div>
 
+      <Modal open={deleteOpen} onClose={() => setDeleteOpen(false)} title="Delete this complaint?" size="sm">
+        <p className="text-sm text-ink/60 dark:text-white/50">
+          This permanently removes the complaint and its photos. Use this for spam or nonsense submissions — for
+          anything legitimate, consider marking it "Rejected" instead so there's still a record.
+        </p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setDeleteOpen(false)}
+            className="rounded-lg px-4 py-2 text-sm font-medium text-ink/60 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/5"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleDeleteComplaint}
+            disabled={deletingComplaint}
+            className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+          >
+            {deletingComplaint ? 'Deleting…' : 'Delete complaint'}
+          </button>
+        </div>
+      </Modal>
+
       {lightboxUrl && (
         <button
           type="button"
@@ -312,6 +406,100 @@ export default function ComplaintDetailPage() {
         >
           <img src={lightboxUrl} alt="Complaint evidence, enlarged" className="max-h-full max-w-full rounded-lg object-contain" />
         </button>
+      )}
+    </div>
+  );
+}
+
+function AdminCommentRow({ comment: c, onReply, onEdit, onDelete }) {
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState(c.text);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function saveEdit() {
+    if (!editText.trim()) return;
+    setBusy(true);
+    try {
+      await onEdit(c._id, editText.trim());
+      setEditing(false);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmDelete() {
+    setBusy(true);
+    try {
+      await onDelete(c._id);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className={`rounded-lg px-3 py-2 ${c.type === 'internal' ? 'bg-accent-500/10' : 'bg-black/[0.03] dark:bg-white/5'}`}>
+      <div className="flex flex-wrap items-baseline gap-2">
+        <p className="text-sm font-medium text-ink dark:text-white">{c.author?.name || 'User'}</p>
+        {c.type === 'internal' && (
+          <span className="rounded-full bg-accent-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-accent-700 dark:text-accent-300">
+            Internal
+          </span>
+        )}
+        <p className="font-mono text-[11px] text-ink/40 dark:text-white/30">
+          {c.editedAt ? '(edited)' : ''}
+        </p>
+      </div>
+
+      {editing ? (
+        <div className="mt-1.5">
+          <textarea
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            rows={2}
+            maxLength={LIMITS.COMMENT_MAX}
+            autoFocus
+            className="w-full resize-none rounded-lg border border-black/10 bg-white px-2.5 py-1.5 text-sm text-ink focus:border-brand-400 dark:border-white/10 dark:bg-white/10 dark:text-white"
+          />
+          <div className="mt-1.5 flex gap-2">
+            <button type="button" onClick={saveEdit} disabled={busy} className="flex items-center gap-1 rounded-md bg-brand-500 px-2 py-1 text-xs font-semibold text-white hover:bg-brand-600 disabled:opacity-50">
+              <Check size={12} /> Save
+            </button>
+            <button type="button" onClick={() => { setEditing(false); setEditText(c.text); }} className="rounded-md px-2 py-1 text-xs font-medium text-ink/60 hover:bg-black/5 dark:text-white/50">
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p className="mt-0.5 whitespace-pre-wrap text-sm text-ink/75 dark:text-white/70">{c.text}</p>
+      )}
+
+      {!editing && !confirmingDelete && (
+        <div className="mt-1.5 flex gap-3">
+          {onReply && (
+            <button type="button" onClick={onReply} className="flex items-center gap-1 text-xs font-medium text-ink/45 hover:text-brand-600 dark:text-white/35 dark:hover:text-brand-300">
+              <Reply size={12} /> Reply
+            </button>
+          )}
+          {c.canEdit && (
+            <button type="button" onClick={() => setEditing(true)} className="flex items-center gap-1 text-xs font-medium text-ink/45 hover:text-brand-600 dark:text-white/35 dark:hover:text-brand-300">
+              <Pencil size={12} /> Edit
+            </button>
+          )}
+          {c.canDelete && (
+            <button type="button" onClick={() => setConfirmingDelete(true)} className="flex items-center gap-1 text-xs font-medium text-ink/45 hover:text-rose-600 dark:text-white/35 dark:hover:text-rose-400">
+              <Trash2 size={12} /> Delete
+            </button>
+          )}
+        </div>
+      )}
+
+      {confirmingDelete && (
+        <div className="mt-1.5 flex items-center gap-2 text-xs">
+          <span className="text-ink/60 dark:text-white/45">Delete this comment?</span>
+          <button type="button" onClick={confirmDelete} disabled={busy} className="font-semibold text-rose-600 hover:underline dark:text-rose-400">Yes, delete</button>
+          <button type="button" onClick={() => setConfirmingDelete(false)} className="text-ink/50 hover:underline dark:text-white/35">Cancel</button>
+        </div>
       )}
     </div>
   );
