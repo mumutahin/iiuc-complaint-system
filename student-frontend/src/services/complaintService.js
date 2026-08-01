@@ -21,7 +21,11 @@ export const complaintService = {
 
   remove: (id) => api.delete(`/complaints/${id}`),
 
-  addComment: (id, text) => api.post(`/complaints/${id}/comments`, { text, type: 'public' }),
+  addComment: (id, text, parentId) => api.post(`/complaints/${id}/comments`, { text, type: 'public', parentId: parentId || undefined }),
+
+  editComment: (id, commentId, text) => api.patch(`/complaints/${id}/comments/${commentId}`, { text }),
+
+  deleteComment: (id, commentId) => api.delete(`/complaints/${id}/comments/${commentId}`),
 
   toggleUpvote: (id) => api.post(`/complaints/${id}/upvote`),
 };
