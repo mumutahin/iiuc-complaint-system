@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router';
 import { Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import StarMotif from '../components/StarMotif.jsx';
+const STUDENT_APP_URL = import.meta.env.VITE_STUDENT_APP_URL;
 
 export default function LoginPage() {
   const { login, loginWithGoogle, resetPassword } = useAuth();
@@ -226,6 +227,13 @@ export default function LoginPage() {
                 Staff accounts are created by a superadmin. If you don't have access yet, contact your department's
                 superadmin.
               </p>
+              {STUDENT_APP_URL && (
+                <p className="mt-3 text-center text-sm">
+                  <a href={STUDENT_APP_URL} className="font-medium text-ink/50 hover:text-brand-600 dark:text-white/40 dark:hover:text-brand-300">
+                    Not staff? Go to the Student Portal →
+                  </a>
+                </p>
+              )}
             </>
           )}
         </div>
