@@ -68,7 +68,7 @@ cd admin-frontend && npm install && npm run dev      # http://localhost:5174
 
 # IIUC Complaint System — Setup & Deployment Guide
 
-It covers the actual code in `iiuc-complaint-system.zip`, and every step has been
+It covers the actual code and every step has been
 checked against how Firebase, MongoDB Atlas, Cloudinary, Render, and
 Vercel actually work today (not just carried over from the previous
 draft).
