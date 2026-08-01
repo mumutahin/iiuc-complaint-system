@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router';
 import { Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import StarMotif from '../components/StarMotif.jsx';
+const ADMIN_APP_URL = import.meta.env.VITE_ADMIN_APP_URL;
 
 export default function LoginPage() {
   const { login, loginWithGoogle, resetPassword } = useAuth();
@@ -232,6 +233,13 @@ export default function LoginPage() {
                   Create one
                 </Link>
               </p>
+              {ADMIN_APP_URL && (
+                <p className="mt-3 text-center text-sm">
+                  <a href={ADMIN_APP_URL} className="font-medium text-ink/50 hover:text-brand-600 dark:text-white/40 dark:hover:text-brand-300">
+                    Staff member? Go to the Staff Portal →
+                  </a>
+                </p>
+              )}
             </>
           )}
         </div>
