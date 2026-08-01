@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
-import { useToast } from '../context/ToastContext.jsx';
 import StarMotif from '../components/StarMotif.jsx';
 
 export default function LoginPage() {
-  const { login, loginWithGoogle } = useAuth();
-  const { showToast } = useToast();
+  const { login, loginWithGoogle, resetPassword } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || '/dashboard';
@@ -17,6 +15,12 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  const [forgotMode, setForgotMode] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetSent, setResetSent] = useState(false);
+  const [resetError, setResetError] = useState('');
+  const [resetBusy, setResetBusy] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -45,6 +49,27 @@ export default function LoginPage() {
     }
   }
 
+  function openForgotPassword() {
+    setResetEmail(email);
+    setResetSent(false);
+    setResetError('');
+    setForgotMode(true);
+  }
+
+  async function handleResetSubmit(e) {
+    e.preventDefault();
+    setResetError('');
+    setResetBusy(true);
+    try {
+      await resetPassword(resetEmail);
+      setResetSent(true);
+    } catch (err) {
+      setResetError(err.message);
+    } finally {
+      setResetBusy(false);
+    }
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-paper px-4 dark:bg-[#0d1614]">
       <div className="w-full max-w-sm">
@@ -59,75 +84,156 @@ export default function LoginPage() {
         </div>
 
         <div className="rounded-2xl border border-black/8 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
-          <h2 className="mb-5 font-display text-lg font-semibold text-ink dark:text-white">Sign in</h2>
-
-          {error && (
-            <p className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
-              {error}
-            </p>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-3.5">
-            <div className="relative">
-              <Mail size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/35 dark:text-white/30" />
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@iiuc.edu.bd"
-                className="w-full rounded-lg border border-black/10 bg-white py-2.5 pl-9 pr-3 text-sm text-ink placeholder:text-ink/35 focus:border-brand-400 dark:border-white/10 dark:bg-transparent dark:text-white"
-              />
-            </div>
-            <div className="relative">
-              <Lock size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/35 dark:text-white/30" />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
-                className="w-full rounded-lg border border-black/10 bg-white py-2.5 pl-9 pr-9 text-sm text-ink placeholder:text-ink/35 focus:border-brand-400 dark:border-white/10 dark:bg-transparent dark:text-white"
-              />
+          {forgotMode ? (
+            <>
               <button
                 type="button"
-                onClick={() => setShowPassword((s) => !s)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-ink/35 dark:text-white/30"
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                onClick={() => setForgotMode(false)}
+                className="mb-4 flex items-center gap-1.5 text-sm font-medium text-ink/60 hover:text-ink dark:text-white/50 dark:hover:text-white"
               >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                <ArrowLeft size={15} /> Back to sign in
               </button>
-            </div>
-            <button
-              type="submit"
-              disabled={busy}
-              className="w-full rounded-lg bg-brand-500 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
-            >
-              {busy ? 'Signing in…' : 'Sign in'}
-            </button>
-          </form>
+              <h2 className="mb-1 font-display text-lg font-semibold text-ink dark:text-white">Reset your password</h2>
+              <p className="mb-5 text-sm text-ink/55 dark:text-white/45">
+                Enter your account email and we'll send you a link to reset your password.
+              </p>
 
-          <div className="my-4 flex items-center gap-3">
-            <span className="h-px flex-1 bg-black/10 dark:bg-white/10" />
-            <span className="text-xs text-ink/40 dark:text-white/30">or</span>
-            <span className="h-px flex-1 bg-black/10 dark:bg-white/10" />
-          </div>
+              {resetSent ? (
+                <p className="rounded-lg bg-brand-500/10 px-3 py-3 text-sm text-brand-700 dark:text-brand-300">
+                  If an account exists for that email, a reset link is on its way — check your inbox (and spam
+                  folder).
+                </p>
+              ) : (
+                <form onSubmit={handleResetSubmit} className="space-y-3.5">
+                  {resetError && (
+                    <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+                      {resetError}
+                    </p>
+                  )}
+                  <div>
+                    <label htmlFor="reset-email" className="mb-1.5 block text-sm font-medium text-ink dark:text-white">
+                      Email address
+                    </label>
+                    <div className="relative">
+                      <Mail size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/35 dark:text-white/30" />
+                      <input
+                        id="reset-email"
+                        type="email"
+                        required
+                        value={resetEmail}
+                        onChange={(e) => setResetEmail(e.target.value)}
+                        placeholder="you@iiuc.edu.bd"
+                        className="w-full rounded-lg border border-black/10 bg-white py-2.5 pl-9 pr-3 text-sm text-ink placeholder:text-ink/35 focus:border-brand-400 dark:border-white/10 dark:bg-transparent dark:text-white"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={resetBusy}
+                    className="w-full rounded-lg bg-brand-500 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
+                  >
+                    {resetBusy ? 'Sending…' : 'Send reset link'}
+                  </button>
+                </form>
+              )}
+            </>
+          ) : (
+            <>
+              <h2 className="mb-5 font-display text-lg font-semibold text-ink dark:text-white">Sign in</h2>
 
-          <button
-            type="button"
-            onClick={handleGoogle}
-            disabled={busy}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-black/10 py-2.5 text-sm font-medium text-ink hover:bg-black/5 disabled:opacity-50 dark:border-white/10 dark:text-white dark:hover:bg-white/5"
-          >
-            <GoogleIcon /> Continue with Google
-          </button>
+              {error && (
+                <p className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+                  {error}
+                </p>
+              )}
 
-          <p className="mt-5 text-center text-sm text-ink/55 dark:text-white/45">
-            Don't have an account?{' '}
-            <Link to="/register" className="font-medium text-brand-600 dark:text-brand-300">
-              Create one
-            </Link>
-          </p>
+              <form onSubmit={handleSubmit} className="space-y-3.5">
+                <div>
+                  <label htmlFor="login-email" className="mb-1.5 block text-sm font-medium text-ink dark:text-white">
+                    Email address
+                  </label>
+                  <div className="relative">
+                    <Mail size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/35 dark:text-white/30" />
+                    <input
+                      id="login-email"
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@iiuc.edu.bd"
+                      className="w-full rounded-lg border border-black/10 bg-white py-2.5 pl-9 pr-3 text-sm text-ink placeholder:text-ink/35 focus:border-brand-400 dark:border-white/10 dark:bg-transparent dark:text-white"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <label htmlFor="login-password" className="block text-sm font-medium text-ink dark:text-white">
+                      Password
+                    </label>
+                    <button
+                      type="button"
+                      onClick={openForgotPassword}
+                      className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-300"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Lock size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/35 dark:text-white/30" />
+                    <input
+                      id="login-password"
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Your password"
+                      className="w-full rounded-lg border border-black/10 bg-white py-2.5 pl-9 pr-9 text-sm text-ink placeholder:text-ink/35 focus:border-brand-400 dark:border-white/10 dark:bg-transparent dark:text-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((s) => !s)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-ink/35 dark:text-white/30"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="w-full rounded-lg bg-brand-500 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-50"
+                >
+                  {busy ? 'Signing in…' : 'Sign in'}
+                </button>
+              </form>
+
+              <div className="my-4 flex items-center gap-3">
+                <span className="h-px flex-1 bg-black/10 dark:bg-white/10" />
+                <span className="text-xs text-ink/40 dark:text-white/30">or</span>
+                <span className="h-px flex-1 bg-black/10 dark:bg-white/10" />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleGoogle}
+                disabled={busy}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-black/10 py-2.5 text-sm font-medium text-ink hover:bg-black/5 disabled:opacity-50 dark:border-white/10 dark:text-white dark:hover:bg-white/5"
+              >
+                <GoogleIcon /> Continue with Google
+              </button>
+              <p className="mt-2 text-center text-xs text-ink/40 dark:text-white/30">
+                Google sign-in only works for accounts that already exist.
+              </p>
+
+              <p className="mt-5 text-center text-sm text-ink/55 dark:text-white/45">
+                Don't have an account?{' '}
+                <Link to="/register" className="font-medium text-brand-600 dark:text-brand-300">
+                  Create one
+                </Link>
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>
