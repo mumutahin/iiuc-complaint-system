@@ -1,5 +1,13 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup, signOut } from 'firebase/auth';
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  getAdditionalUserInfo,
+  deleteUser,
+  sendPasswordResetEmail,
+  signOut,
+} from 'firebase/auth';
 import { auth, googleProvider } from '../firebase/firebaseConfig.js';
 import { api } from '../services/api.js';
 import { mapFirebaseError } from '../../../shared/constants.js';
@@ -47,14 +55,53 @@ export function AuthProvider({ children }) {
   async function loginWithGoogle() {
     try {
       const credential = await signInWithPopup(auth, googleProvider);
+
+      // Same rule as the student app: Firebase auto-creates an account
+      // on the first-ever Google sign-in for an identity. On the STAFF
+      // portal this matters even more — staff accounts are provisioned
+      // by a superadmin, never self-service-created via a Google popup.
+      const { isNewUser } = getAdditionalUserInfo(credential) || {};
+      if (isNewUser) {
+        try {
+          await deleteUser(credential.user);
+        } catch {
+          await signOut(auth);
+        }
+        throw new Error(
+          'This Google account is not registered as staff. Ask a superadmin to create your account first.'
+        );
+      }
+
       return credential.user;
     } catch (err) {
       if (err.code === 'auth/popup-closed-by-user') return null;
-      throw new Error(mapFirebaseError(err.code));
+      if (err.code === 'auth/account-exists-with-different-credential') {
+        throw new Error('An account with this email already exists. Please sign in with your email and password instead.');
+      }
+      if (err.code) throw new Error(mapFirebaseError(err.code));
+      throw err;
     }
   }
 
   async function logout() {
+    await signOut(auth);
+  }
+
+  /** See student-frontend's AuthContext for why this always resolves the same way regardless of whether the email is registered. */
+  async function resetPassword(email) {
+    try {
+      await sendPasswordResetEmail(auth, email);
+    } catch (err) {
+      if (err.code === 'auth/invalid-email') throw new Error(mapFirebaseError(err.code));
+      if (err.code === 'auth/too-many-requests') throw new Error(mapFirebaseError(err.code));
+      if (err.code === 'auth/user-not-found') return;
+      throw new Error(mapFirebaseError(err.code));
+    }
+  }
+
+  /** Deletes the backend account (complaints/history are preserved) then ends the local session. */
+  async function deleteAccount() {
+    await api.delete('/auth/me');
     await signOut(auth);
   }
 
@@ -71,6 +118,8 @@ export function AuthProvider({ children }) {
     login,
     loginWithGoogle,
     logout,
+    deleteAccount,
+    resetPassword,
     refreshProfile: syncProfile,
   };
 
