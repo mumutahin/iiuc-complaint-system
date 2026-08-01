@@ -66,8 +66,3 @@ cd student-frontend && npm install && npm run dev    # http://localhost:5173
 # Terminal 3
 cd admin-frontend && npm install && npm run dev      # http://localhost:5174
 ```
-
-Each folder has its own `.env.example` — copy it to `.env` and fill in
-real values before running. Nothing will work until you've created a
-Firebase project, a MongoDB Atlas cluster, and a Cloudinary account;
-the setup guide walks through all three step by step.
