@@ -166,10 +166,8 @@ for them to end up in your deployed frontend's JS bundle.
    create a free **M0** cluster (any region close to you/Render is
    fine — AWS Singapore or Mumbai will have the lowest latency from
    Bangladesh). Download the `credentials.env` file. **Keep this file private — never commit it to Git.**
-2. From the left sidebar **Security** → **Database and Network Access** → **IP Access List** → **Add IP Address** → **Allow access from
-   anywhere** (add `0.0.0.0/0` in access entry list). This is the simplest option for a course
-   project; Render's outbound IPs aren't fixed on the free tier, so a
-   specific-IP allowlist would break on every redeploy.
+2. From the left sidebar **Security** → **Database and Network Access** → **IP Access List** → **Add IP Address** → 
+   Set up the IP addresses provided by render after deploying the backend, see step 8.6 below.
 3. From the left sidebar **Database → Clusters → Choose your cluster → Connect → Drivers** → copy the connection string. It
    looks like:
    ```
@@ -297,6 +295,7 @@ promote yourself:
 5. **Create Web Service**. First deploy takes a few minutes. When it's
    live, visit `https://your-service.onrender.com/api/health` — you
    should see `{"status":"ok",...}`.
+6. Click the connect button and copy the outbound IP addresses to set them up in MongoDB, see step 3.2 above.
 
 **Free tier reality check:** Render spins a free web service down
 after 15 minutes with no traffic, and the next request takes
