@@ -16,6 +16,8 @@ import {
   updatePriority,
   assignComplaint,
   addComment,
+  editComment,
+  deleteComment,
   toggleUpvote,
 } from '../controllers/complaintController.js';
 
@@ -32,11 +34,16 @@ router.get('/', restrictTo('admin', 'superadmin'), getAllComplaints);
 // --- Generic "/:id" and its sub-resources --------------------------------
 router.get('/:id', getComplaintById);
 router.patch('/:id', restrictTo('student'), imagesField, updateComplaint);
-router.delete('/:id', restrictTo('student'), deleteComplaint);
+// Both students (their own, while Pending) and staff (any, any status —
+// see deleteComplaint's internal role check) can reach this route; the
+// controller itself enforces exactly who's allowed to delete what.
+router.delete('/:id', restrictTo('student', 'admin', 'superadmin'), deleteComplaint);
 router.patch('/:id/status', restrictTo('admin', 'superadmin'), updateStatus);
 router.patch('/:id/priority', restrictTo('admin', 'superadmin'), updatePriority);
 router.patch('/:id/assign', restrictTo('admin', 'superadmin'), assignComplaint);
 router.post('/:id/comments', addComment);
+router.patch('/:id/comments/:commentId', editComment);
+router.delete('/:id/comments/:commentId', deleteComment);
 router.post('/:id/upvote', restrictTo('student'), toggleUpvote);
 
 export default router;
