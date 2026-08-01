@@ -6,7 +6,7 @@ import StarMotif from '../components/StarMotif.jsx';
 import { LIMITS } from '../../../shared/constants.js';
 
 export default function RegisterPage() {
-  const { register, loginWithGoogle } = useAuth();
+  const { register } = useAuth();
   const navigate = useNavigate();
 
   const [name, setName] = useState('');
@@ -44,19 +44,6 @@ export default function RegisterPage() {
     }
   }
 
-  async function handleGoogle() {
-    setError('');
-    setBusy(true);
-    try {
-      const user = await loginWithGoogle();
-      if (user) navigate('/dashboard', { replace: true });
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-paper px-4 py-10 dark:bg-[#0d1614]">
       <div className="w-full max-w-sm">
@@ -76,50 +63,74 @@ export default function RegisterPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-3.5">
-            <div className="relative">
-              <User size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/35 dark:text-white/30" />
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Full name"
-                maxLength={LIMITS.NAME_MAX}
-                className="w-full rounded-lg border border-black/10 bg-white py-2.5 pl-9 pr-3 text-sm text-ink placeholder:text-ink/35 focus:border-brand-400 dark:border-white/10 dark:bg-transparent dark:text-white"
-              />
+            <div>
+              <label htmlFor="reg-name" className="mb-1.5 block text-sm font-medium text-ink dark:text-white">
+                Full name
+              </label>
+              <div className="relative">
+                <User size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/35 dark:text-white/30" />
+                <input
+                  id="reg-name"
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your full name"
+                  maxLength={LIMITS.NAME_MAX}
+                  className="w-full rounded-lg border border-black/10 bg-white py-2.5 pl-9 pr-3 text-sm text-ink placeholder:text-ink/35 focus:border-brand-400 dark:border-white/10 dark:bg-transparent dark:text-white"
+                />
+              </div>
             </div>
-            <div className="relative">
-              <Mail size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/35 dark:text-white/30" />
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@iiuc.edu.bd"
-                className="w-full rounded-lg border border-black/10 bg-white py-2.5 pl-9 pr-3 text-sm text-ink placeholder:text-ink/35 focus:border-brand-400 dark:border-white/10 dark:bg-transparent dark:text-white"
-              />
+            <div>
+              <label htmlFor="reg-email" className="mb-1.5 block text-sm font-medium text-ink dark:text-white">
+                Email address
+              </label>
+              <div className="relative">
+                <Mail size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/35 dark:text-white/30" />
+                <input
+                  id="reg-email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@iiuc.edu.bd"
+                  className="w-full rounded-lg border border-black/10 bg-white py-2.5 pl-9 pr-3 text-sm text-ink placeholder:text-ink/35 focus:border-brand-400 dark:border-white/10 dark:bg-transparent dark:text-white"
+                />
+              </div>
             </div>
-            <div className="relative">
-              <Lock size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/35 dark:text-white/30" />
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password (min. 6 characters)"
-                className="w-full rounded-lg border border-black/10 bg-white py-2.5 pl-9 pr-3 text-sm text-ink placeholder:text-ink/35 focus:border-brand-400 dark:border-white/10 dark:bg-transparent dark:text-white"
-              />
+            <div>
+              <label htmlFor="reg-password" className="mb-1.5 block text-sm font-medium text-ink dark:text-white">
+                Password
+              </label>
+              <div className="relative">
+                <Lock size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/35 dark:text-white/30" />
+                <input
+                  id="reg-password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="At least 6 characters"
+                  className="w-full rounded-lg border border-black/10 bg-white py-2.5 pl-9 pr-3 text-sm text-ink placeholder:text-ink/35 focus:border-brand-400 dark:border-white/10 dark:bg-transparent dark:text-white"
+                />
+              </div>
             </div>
-            <div className="relative">
-              <Lock size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/35 dark:text-white/30" />
-              <input
-                type="password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm password"
-                className="w-full rounded-lg border border-black/10 bg-white py-2.5 pl-9 pr-3 text-sm text-ink placeholder:text-ink/35 focus:border-brand-400 dark:border-white/10 dark:bg-transparent dark:text-white"
-              />
+            <div>
+              <label htmlFor="reg-confirm" className="mb-1.5 block text-sm font-medium text-ink dark:text-white">
+                Confirm password
+              </label>
+              <div className="relative">
+                <Lock size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/35 dark:text-white/30" />
+                <input
+                  id="reg-confirm"
+                  type="password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Re-type your password"
+                  className="w-full rounded-lg border border-black/10 bg-white py-2.5 pl-9 pr-3 text-sm text-ink placeholder:text-ink/35 focus:border-brand-400 dark:border-white/10 dark:bg-transparent dark:text-white"
+                />
+              </div>
             </div>
             <button
               type="submit"
@@ -129,21 +140,6 @@ export default function RegisterPage() {
               {busy ? 'Creating account…' : 'Create account'}
             </button>
           </form>
-
-          <div className="my-4 flex items-center gap-3">
-            <span className="h-px flex-1 bg-black/10 dark:bg-white/10" />
-            <span className="text-xs text-ink/40 dark:text-white/30">or</span>
-            <span className="h-px flex-1 bg-black/10 dark:bg-white/10" />
-          </div>
-
-          <button
-            type="button"
-            onClick={handleGoogle}
-            disabled={busy}
-            className="w-full rounded-lg border border-black/10 py-2.5 text-sm font-medium text-ink hover:bg-black/5 disabled:opacity-50 dark:border-white/10 dark:text-white dark:hover:bg-white/5"
-          >
-            Continue with Google
-          </button>
 
           <p className="mt-5 text-center text-sm text-ink/55 dark:text-white/45">
             Already have an account?{' '}
