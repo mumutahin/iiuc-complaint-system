@@ -261,7 +261,8 @@ same GitHub repo.
 3. **Environment Variables** → add every value from that folder's
    `.env.example` (the Firebase values are identical between the two
    apps; only `VITE_API_URL`/`VITE_SOCKET_URL` matter per-app, and
-   they'll be the same Render URL for both).
+   they'll be the same Render URL for both). `student-frontend` also
+   has one extra var, `VITE_ADMIN_APP_URL` — see step 10.4 below.
 4. **Deploy**. Repeat for the other frontend.
 
 Because each Vercel project's **Root Directory** is set to its own
