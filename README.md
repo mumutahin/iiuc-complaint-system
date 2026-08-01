@@ -51,7 +51,7 @@ JavaScript.
 There's no self-service way to become an admin or superadmin — see
 "Creating your first superadmin" in the setup guide.
 
-## Quickstart (once everything is configured — see the setup guide first)
+## Quickstart (once everything is configured — see the setup guide below+)
 
 ```bash
 # Terminal 1
@@ -78,35 +78,7 @@ student's name from *other students* browsing the community board.
 It does **not** hide it from admin/superadmin — university staff
 handling a complaint always see who filed it, for accountability.
 
-### 0 Changelog — post-deployment feature round
-
-After the initial build and deploy, these were added/fixed:
-
-- **Forgot password**, on both login screens (Firebase's built-in
-  reset email; always shows the same message whether or not the
-  email is registered, so it can't be used to check who has an account).
-- **Google sign-in is now login-only.** It's rejected for any identity
-  Firebase hasn't seen before (checked via `isNewUser`, then the
-  auto-created account is deleted) — only pre-registered accounts can
-  enter this way. Consequently, the Register page's Google button was
-  removed; registration is email/password only now.
-- **Delete my account**, in both apps' Profile page. Deletes the login
-  (MongoDB user + Firebase Auth record) but **never** touches
-  complaints — they stay on record, attributed to "Deleted user."
-  A staff member's assigned complaints get released back to
-  unassigned. A superadmin can't delete themselves if they're the only one.
-- **Staff can delete any complaint, any status** (for spam/nonsense);
-  students keep their existing own-complaint-while-Pending edit/delete.
-- **Fixed a real bug:** staff comments were displaying as "Student" to
-  the complaint owner. Comments now also support one level of replies,
-  plus edit/delete (own comment, or any comment if you're staff).
-- **Labels on every login/register field** — no more icon-only inputs.
-- **New landing page** (`/` on the student app) — lets a visitor choose
-  Student vs. Staff before reaching a login screen. See §9-10 for the
-  one new env var this needs.
-
 ---
-
 
 ## 1. Accounts you'll need (all free tiers)
 
@@ -165,15 +137,16 @@ for them to end up in your deployed frontend's JS bundle.
 1. Sign up at [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) →
    create a free **M0** cluster (any region close to you/Render is
    fine — AWS Singapore or Mumbai will have the lowest latency from
-   Bangladesh). Download the `credentials.env` file. **Keep this file private — never commit it to Git.**
+   Bangladesh), Name it (e.g. `iiuc-complaint-system`). Download the 
+   `credentials.env` file. **Keep this file private — never commit it to Git.**
 2. From the left sidebar **Security** → **Database and Network Access** → **IP Access List** → **Add IP Address** → 
    Set up the IP addresses provided by render after deploying the backend, see step 8.6 below.
-3. From the left sidebar **Database → Clusters → Choose your cluster → Connect → Drivers** → copy the connection string. It
-   looks like:
+3. From the left sidebar **Database → Clusters → Choose your cluster → Connect → Drivers** → copy the connection string. 
+   It looks like:
    ```
-   mongodb+srv://<username>:<password>@<your_cluster_name>.xxxxx.mongodb.net/?appName=<your_cluster_name>
+   mongodb+srv://<username>:<password>@<your_cluster_name>.xxxxx.mongodb.net/iiuc_complaints?appName=<your_cluster_name>
    ```
-   Replace `<username>`/`<password>`/`your_cluster_name` with your database user's
+   Replace `<username>`/`<password>`/`<your_cluster_name>` with your database user's
    credentials, and cluster name. This full string goes in
    `backend/.env` as `MONGODB_URI`.
 
