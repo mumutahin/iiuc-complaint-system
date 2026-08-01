@@ -156,14 +156,7 @@ for them to end up in your deployed frontend's JS bundle.
    - `project_id` → `FIREBASE_PROJECT_ID`
    - `client_email` → `FIREBASE_CLIENT_EMAIL`
    - `private_key` → `FIREBASE_PRIVATE_KEY` (paste it exactly as-is,
-     including the `\n` sequences and surrounding quotes — see the
-     comment in `backend/.env.example`)
-
-If your hosting provider's dashboard mangles multi-line env values,
-`backend/src/config/firebaseAdmin.js` also accepts the **entire** JSON
-file base64-encoded in one variable, `FIREBASE_SERVICE_ACCOUNT_BASE64`
-— instructions are in `backend/.env.example`. Use whichever is easier;
-you don't need both.
+     including the `\n` sequences and surrounding quotes)
 
 ---
 
