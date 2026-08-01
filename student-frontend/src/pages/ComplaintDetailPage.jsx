@@ -66,15 +66,33 @@ export default function ComplaintDetailPage() {
     }
   }
 
-  async function handleAddComment(text) {
+  async function handleAddComment(text, parentId) {
     setCommenting(true);
     try {
-      const { data } = await complaintService.addComment(id, text);
+      const { data } = await complaintService.addComment(id, text, parentId);
       setComplaint(data.data);
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
       setCommenting(false);
+    }
+  }
+
+  async function handleEditComment(commentId, text) {
+    try {
+      const { data } = await complaintService.editComment(id, commentId, text);
+      setComplaint(data.data);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  async function handleDeleteComment(commentId) {
+    try {
+      const { data } = await complaintService.deleteComment(id, commentId);
+      setComplaint(data.data);
+    } catch (err) {
+      showToast(err.message, 'error');
     }
   }
 
@@ -102,8 +120,6 @@ export default function ComplaintDetailPage() {
       </div>
     );
   }
-
-  const canEdit = complaint.isOwner && complaint.status === 'Pending';
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
@@ -145,28 +161,38 @@ export default function ComplaintDetailPage() {
               </div>
             )}
 
-            {canEdit && (
+            {(complaint.canEdit || complaint.canDelete) && (
               <div className="mt-5 flex gap-2 border-t border-black/5 pt-4 dark:border-white/5">
-                <Link
-                  to={`/complaints/${id}/edit`}
-                  className="flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-1.5 text-sm font-medium text-ink hover:bg-black/5 dark:border-white/10 dark:text-white dark:hover:bg-white/5"
-                >
-                  <Pencil size={14} /> Edit
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => setDeleteOpen(true)}
-                  className="flex items-center gap-1.5 rounded-lg border border-rose-200 px-3 py-1.5 text-sm font-medium text-rose-600 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400 dark:hover:bg-rose-950/30"
-                >
-                  <Trash2 size={14} /> Delete
-                </button>
+                {complaint.canEdit && (
+                  <Link
+                    to={`/complaints/${id}/edit`}
+                    className="flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-1.5 text-sm font-medium text-ink hover:bg-black/5 dark:border-white/10 dark:text-white dark:hover:bg-white/5"
+                  >
+                    <Pencil size={14} /> Edit
+                  </Link>
+                )}
+                {complaint.canDelete && (
+                  <button
+                    type="button"
+                    onClick={() => setDeleteOpen(true)}
+                    className="flex items-center gap-1.5 rounded-lg border border-rose-200 px-3 py-1.5 text-sm font-medium text-rose-600 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400 dark:hover:bg-rose-950/30"
+                  >
+                    <Trash2 size={14} /> Delete
+                  </button>
+                )}
               </div>
             )}
           </div>
 
           <div className="mt-5 rounded-2xl border border-black/8 bg-white p-6 dark:border-white/10 dark:bg-white/[0.03]">
             <h2 className="mb-4 font-display text-base font-semibold text-ink dark:text-white">Comments</h2>
-            <CommentSection comments={complaint.comments} onAddComment={handleAddComment} submitting={commenting} />
+            <CommentSection
+              comments={complaint.comments}
+              onAddComment={handleAddComment}
+              onEditComment={handleEditComment}
+              onDeleteComment={handleDeleteComment}
+              submitting={commenting}
+            />
           </div>
         </div>
 
