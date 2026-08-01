@@ -13,46 +13,71 @@
  *  - The complaint OWNER always sees their own complaint fully.
  *  - Any OTHER student (browsing the community board) sees the real
  *    name only if the complaint was NOT submitted anonymously.
- *  - Internal comments/activity "performed by" identities are staff-only.
+ *  - Comment authors are ALWAYS shown truthfully to anyone who can see
+ *    the comment at all (only the owner and staff can comment in the
+ *    first place, so there's no case where hiding a commenter's name
+ *    from the other party makes sense — that used to be a bug here).
+ *  - Internal comments and full activity-log detail are staff-only.
  *  - Which admin/department is assigned is staff + owner only — not
  *    exposed to other students browsing the community board.
+ *  - If a referenced account (the submitter, an assignee, a commenter,
+ *    someone in the activity log) has since been deleted, we show
+ *    "Deleted user" instead of crashing on a null populate result —
+ *    deleting an account never deletes the complaints/history tied to it.
  */
 export function serializeComplaint(complaintDoc, viewer) {
   const c = complaintDoc.toObject ? complaintDoc.toObject() : complaintDoc;
 
   const isStaff = viewer.role === 'admin' || viewer.role === 'superadmin';
-  const studentIdStr = c.studentId?._id ? String(c.studentId._id) : String(c.studentId);
-  const isOwner = viewer.role === 'student' && studentIdStr === String(viewer._id);
+
+  // c.studentId is the populated User doc, OR null if that account was
+  // deleted (Mongoose populate resolves a dangling ref to null), OR in
+  // rare unpopulated paths just a raw ObjectId.
+  const studentDoc = c.studentId && c.studentId.name !== undefined ? c.studentId : null;
+  const studentIdStr = studentDoc ? String(studentDoc._id) : c.studentId ? String(c.studentId) : null;
+  const isOwner = viewer.role === 'student' && studentIdStr !== null && studentIdStr === String(viewer._id);
   const canSeeInternal = isStaff || isOwner;
   const revealIdentity = isStaff || isOwner || !c.isAnonymous;
 
-  const student = revealIdentity
-    ? {
-        _id: studentIdStr,
-        name: c.studentId?.name || 'Unknown student',
-        email: isStaff ? c.studentId?.email : undefined,
-      }
+  const student = !studentDoc
+    ? { _id: studentIdStr, name: 'Deleted user', email: undefined }
+    : revealIdentity
+    ? { _id: studentIdStr, name: studentDoc.name || 'Unknown student', email: isStaff ? studentDoc.email : undefined }
     : null;
 
   const comments = (c.comments || [])
     .filter((cm) => cm.type === 'public' || isStaff)
-    .map((cm) => ({
-      _id: cm._id,
-      text: cm.text,
-      type: cm.type,
-      createdAt: cm.createdAt,
-      author:
-        isStaff || String(cm.authorId?._id || cm.authorId) === String(viewer._id)
-          ? { name: cm.authorId?.name || 'User', role: cm.authorId?.role }
-          : { name: 'Student' },
-    }));
+    .map((cm) => {
+      const authorDoc = cm.authorId && cm.authorId.name !== undefined ? cm.authorId : null;
+      const authorIdStr = authorDoc ? String(authorDoc._id) : cm.authorId ? String(cm.authorId) : null;
+      const isCommentAuthor = authorIdStr !== null && authorIdStr === String(viewer._id);
+      return {
+        _id: cm._id,
+        text: cm.text,
+        type: cm.type,
+        parentId: cm.parentId || null,
+        editedAt: cm.editedAt || null,
+        createdAt: cm.createdAt,
+        author: authorDoc
+          ? { _id: authorIdStr, name: authorDoc.name || 'User', role: authorDoc.role }
+          : { _id: authorIdStr, name: 'Deleted user', role: null },
+        // Server decides who's allowed to edit/delete each comment so the
+        // frontend never has to reimplement this logic (and can't get it
+        // wrong): your own comment, or any comment if you're staff.
+        canEdit: isCommentAuthor,
+        canDelete: isCommentAuthor || isStaff,
+      };
+    });
 
-  const activityLogs = (c.activityLogs || []).map((log) => ({
-    action: log.action,
-    details: canSeeInternal ? log.details : undefined,
-    timestamp: log.timestamp,
-    performedBy: canSeeInternal ? log.performedBy?.name || undefined : undefined,
-  }));
+  const activityLogs = (c.activityLogs || []).map((log) => {
+    const performerDoc = log.performedBy && log.performedBy.name !== undefined ? log.performedBy : null;
+    return {
+      action: log.action,
+      details: canSeeInternal ? log.details : undefined,
+      timestamp: log.timestamp,
+      performedBy: canSeeInternal ? (performerDoc ? performerDoc.name : log.performedBy ? 'Deleted user' : undefined) : undefined,
+    };
+  });
 
   return {
     _id: c._id,
@@ -61,7 +86,7 @@ export function serializeComplaint(complaintDoc, viewer) {
     category: c.category,
     location: c.location,
     status: c.status,
-    priority: canSeeInternal ? c.priority : c.priority, // priority is not sensitive; kept visible to everyone
+    priority: c.priority,
     images: c.images || [],
     isAnonymous: c.isAnonymous,
     upvoteCount: (c.upvotes || []).length,
@@ -76,6 +101,10 @@ export function serializeComplaint(complaintDoc, viewer) {
     resolvedAt: c.resolvedAt,
     isOwner,
     canManage: isStaff,
+    // Staff can delete ANY complaint (dept-scoped, enforced server-side);
+    // a student can only delete their own while still Pending.
+    canDelete: isStaff || (isOwner && c.status === 'Pending'),
+    canEdit: isOwner && c.status === 'Pending',
   };
 }
 
