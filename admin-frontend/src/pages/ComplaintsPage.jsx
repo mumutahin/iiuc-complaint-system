@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { Download, MapPin } from 'lucide-react';
+import { Download, MapPin, Trash2 } from 'lucide-react';
 import { complaintService, reportService } from '../services/adminService.js';
 import { useToast } from '../context/ToastContext.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
@@ -8,6 +8,7 @@ import PriorityBadge from '../components/PriorityBadge.jsx';
 import Pagination from '../components/Pagination.jsx';
 import LoadingSpinner from '../components/LoadingSpinner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
+import Modal from '../components/Modal.jsx';
 import { COMPLAINT_CATEGORIES, COMPLAINT_STATUSES, STATUS_TRANSITIONS } from '../../../shared/constants.js';
 import { formatRelativeTime } from '../../../shared/formatters.js';
 
@@ -30,6 +31,8 @@ export default function ComplaintsPage() {
   const [bulkStatus, setBulkStatus] = useState('');
   const [applyingBulk, setApplyingBulk] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [deletingBulk, setDeletingBulk] = useState(false);
 
   function load() {
     setLoading(true);
@@ -77,6 +80,21 @@ export default function ComplaintsPage() {
       showToast(err.message, 'error');
     } finally {
       setApplyingBulk(false);
+    }
+  }
+
+  async function handleBulkDelete() {
+    setDeletingBulk(true);
+    try {
+      const results = await Promise.allSettled([...selected].map((id) => complaintService.remove(id)));
+      const failed = results.filter((r) => r.status === 'rejected').length;
+      const succeeded = results.length - failed;
+      if (succeeded > 0) showToast(`Deleted ${succeeded} complaint(s).${failed ? ` ${failed} failed.` : ''}`, failed ? 'info' : 'success');
+      else showToast('Could not delete the selected complaints.', 'error');
+      setBulkDeleteOpen(false);
+      load();
+    } finally {
+      setDeletingBulk(false);
     }
   }
 
@@ -179,6 +197,13 @@ export default function ComplaintsPage() {
               Selected complaints don't share a common next status — update them individually instead.
             </span>
           )}
+          <button
+            type="button"
+            onClick={() => setBulkDeleteOpen(true)}
+            className="ml-auto flex items-center gap-1.5 rounded-lg border border-rose-300 px-3 py-1.5 text-sm font-medium text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/30"
+          >
+            <Trash2 size={14} /> Delete selected
+          </button>
         </div>
       )}
 
@@ -239,6 +264,30 @@ export default function ComplaintsPage() {
           <Pagination page={pagination?.page} pages={pagination?.pages} onChange={(page) => setFilters((f) => ({ ...f, page }))} />
         </>
       )}
+
+      <Modal open={bulkDeleteOpen} onClose={() => setBulkDeleteOpen(false)} title={`Delete ${selected.size} complaint(s)?`} size="sm">
+        <p className="text-sm text-ink/60 dark:text-white/50">
+          This permanently removes all {selected.size} selected complaints and their photos. Use this for spam or
+          nonsense submissions — this can't be undone.
+        </p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setBulkDeleteOpen(false)}
+            className="rounded-lg px-4 py-2 text-sm font-medium text-ink/60 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/5"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleBulkDelete}
+            disabled={deletingBulk}
+            className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+          >
+            {deletingBulk ? 'Deleting…' : `Delete ${selected.size} complaint(s)`}
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }
