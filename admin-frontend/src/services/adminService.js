@@ -12,7 +12,10 @@ export const complaintService = {
   updateStatus: (id, status, remark) => api.patch(`/complaints/${id}/status`, { status, remark }),
   updatePriority: (id, priority) => api.patch(`/complaints/${id}/priority`, { priority }),
   assign: (id, payload) => api.patch(`/complaints/${id}/assign`, payload),
-  addComment: (id, text, type) => api.post(`/complaints/${id}/comments`, { text, type }),
+  remove: (id) => api.delete(`/complaints/${id}`),
+  addComment: (id, text, type, parentId) => api.post(`/complaints/${id}/comments`, { text, type, parentId: parentId || undefined }),
+  editComment: (id, commentId, text) => api.patch(`/complaints/${id}/comments/${commentId}`, { text }),
+  deleteComment: (id, commentId) => api.delete(`/complaints/${id}/comments/${commentId}`),
 };
 
 export const departmentService = {
