@@ -14,6 +14,12 @@ const commentSchema = new Schema(
     authorId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     text: { type: String, required: true, trim: true, maxlength: LIMITS.COMMENT_MAX },
     type: { type: String, enum: COMMENT_TYPES, default: 'public' },
+    // References another comment's _id within the SAME complaint's array,
+    // for one level of "reply" nesting. Null = top-level comment. We only
+    // ever allow replying to a top-level comment (enforced in the
+    // controller), not to a reply, to keep threading simple and shallow.
+    parentId: { type: Schema.Types.ObjectId, default: null },
+    editedAt: { type: Date, default: null },
   },
   { timestamps: { createdAt: true, updatedAt: false }, _id: true }
 );
