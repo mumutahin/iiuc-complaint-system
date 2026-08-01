@@ -1,11 +1,44 @@
 # IIUC Complaint System — Setup & Deployment Guide
 
-It covers the actual code, and every step has been
+It covers the actual code in `iiuc-complaint-system.zip`, and every step has been
 checked against how Firebase, MongoDB Atlas, Cloudinary, Render, and
 Vercel actually work today (not just carried over from the previous
 draft).
 
+**One product decision worth knowing:** "Submit anonymously" hides a
+student's name from *other students* browsing the community board.
+It does **not** hide it from admin/superadmin — university staff
+handling a complaint always see who filed it, for accountability.
+
+### 0 Changelog — post-deployment feature round
+
+After the initial build and deploy, these were added/fixed:
+
+- **Forgot password**, on both login screens (Firebase's built-in
+  reset email; always shows the same message whether or not the
+  email is registered, so it can't be used to check who has an account).
+- **Google sign-in is now login-only.** It's rejected for any identity
+  Firebase hasn't seen before (checked via `isNewUser`, then the
+  auto-created account is deleted) — only pre-registered accounts can
+  enter this way. Consequently, the Register page's Google button was
+  removed; registration is email/password only now.
+- **Delete my account**, in both apps' Profile page. Deletes the login
+  (MongoDB user + Firebase Auth record) but **never** touches
+  complaints — they stay on record, attributed to "Deleted user."
+  A staff member's assigned complaints get released back to
+  unassigned. A superadmin can't delete themselves if they're the only one.
+- **Staff can delete any complaint, any status** (for spam/nonsense);
+  students keep their existing own-complaint-while-Pending edit/delete.
+- **Fixed a real bug:** staff comments were displaying as "Student" to
+  the complaint owner. Comments now also support one level of replies,
+  plus edit/delete (own comment, or any comment if you're staff).
+- **Labels on every login/register field** — no more icon-only inputs.
+- **New landing page** (`/` on the student app) — lets a visitor choose
+  Student vs. Staff before reaching a login screen. See §9-10 for the
+  one new env var this needs.
+
 ---
+
 
 ## 1. Accounts you'll need (all free tiers)
 
@@ -254,6 +287,12 @@ Now that you have three real URLs:
    `localhost`).
 3. Visit your deployed student app, submit a test complaint, then
    check it shows up in the deployed admin app.
+4. **student-frontend** → Vercel env vars → set `VITE_ADMIN_APP_URL`
+   to your deployed **admin** app's URL (e.g.
+   `https://your-admin-app.vercel.app`) → redeploy student-frontend.
+   This is what makes the "I'm Staff" button on the student app's
+   landing page (`/`) send people to the right place. If you skip
+   this, the button just does nothing — it fails safe, not broken.
 
 ---
 
@@ -269,5 +308,9 @@ Now that you have three real URLs:
 | Image upload fails | Cloudinary credentials wrong, or file >5MB / wrong type | Check `backend/.env` Cloudinary values; only JPEG/PNG/WEBP under 5MB are accepted. |
 | Refreshing `/complaints/123` on the deployed site gives a 404 | Vercel didn't apply the SPA rewrite | Confirm `vercel.json` is present in that frontend's folder (it already is in this build) and redeploy. |
 | Can't log into admin app at all | Account is still `role: student` | Run `npm run make-admin` (first superadmin) or have an existing superadmin promote you from **Users**. |
+| Google sign-in fails on the deployed site but email/password works fine, and it worked on `localhost` | Firebase blocks OAuth popup sign-in from domains it doesn't recognize — `localhost` is allowed by default, your Vercel URL isn't | Firebase Console → Authentication → Settings → **Authorized domains** → Add your exact `.vercel.app` URL(s). No redeploy needed, takes effect immediately. |
+| "This Google account is not registered" on a real, valid Google account | Expected behavior, not a bug — Google sign-in only works for identities that already exist in the system (see §0) | Register with email/password first (student app), or have a superadmin create the staff account first (admin app). |
+| Deploy hook URL accidentally used as `VITE_API_URL` | Render's dashboard shows a "Deploy Hook" URL that looks similar to an API URL but isn't one | Use `https://<your-service>.onrender.com/api`, not anything containing `api.render.com/deploy/...`. If you pasted a deploy hook into a public frontend build, delete and regenerate it in Render's service settings — treat it as briefly exposed. |
 | Real-time toast notifications don't appear | Socket didn't connect | Check `VITE_SOCKET_URL` matches your backend's actual URL, and that the backend redeployed after you set `CORS_ORIGINS`. |
 | Render free instance is slow on first load | Expected — free tier spins down after 15 min idle | Not a bug; "warm it up" before a demo (see §8). |
+
