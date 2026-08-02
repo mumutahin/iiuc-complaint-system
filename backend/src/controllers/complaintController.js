@@ -465,16 +465,18 @@ export const addComment = asyncHandler(async (req, res) => {
 
   const isOwner = String(complaint.studentId._id) === String(req.user._id);
   const isStaff = req.user.role === 'admin' || req.user.role === 'superadmin';
-  if (!isOwner && !isStaff) throw new ApiError(403, 'You cannot comment on this complaint.', 'FORBIDDEN');
+  // Any authenticated student (not just the owner) or in-scope staff
+  // member can comment — this is what makes the community board a real
+  // discussion instead of a read-only upvote list. Internal-only notes
+  // stay staff-only regardless (enforced below via `commentType`).
   if (isStaff) assertStaffCanAccessComplaint(req.user, complaint);
 
   let parentComment = null;
   if (parentId) {
     parentComment = complaint.comments.id(parentId);
     if (!parentComment) throw new ApiError(404, 'The comment you are replying to no longer exists.', 'NOT_FOUND');
-    if (parentComment.parentId) {
-      throw new ApiError(400, 'You can only reply to a top-level comment, not to another reply.', 'VALIDATION_ERROR');
-    }
+    // Any comment can be replied to now, at any depth — see the
+    // recursive rendering in CommentSection.jsx / ComplaintDetailPage.jsx.
   }
 
   const commentType = isStaff && type === 'internal' ? 'internal' : 'public';
