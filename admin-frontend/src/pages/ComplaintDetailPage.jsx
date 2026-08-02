@@ -13,15 +13,15 @@ import Modal from '../components/Modal.jsx';
 import { PRIORITIES, LIMITS } from '../../../shared/constants.js';
 import { formatDate } from '../../../shared/formatters.js';
 
-function groupComments(comments) {
-  const topLevel = comments.filter((c) => !c.parentId);
-  const repliesByParent = new Map();
-  comments.filter((c) => c.parentId).forEach((c) => {
-    const key = String(c.parentId);
-    if (!repliesByParent.has(key)) repliesByParent.set(key, []);
-    repliesByParent.get(key).push(c);
-  });
-  return topLevel.map((c) => ({ ...c, replies: repliesByParent.get(String(c._id)) || [] }));
+function buildCommentTree(comments) {
+  const byId = new Map(comments.map((c) => [String(c._id), { ...c, children: [] }]));
+  const roots = [];
+  for (const c of byId.values()) {
+    const parent = c.parentId && byId.get(String(c.parentId));
+    if (parent) parent.children.push(c);
+    else roots.push(c);
+  }
+  return roots;
 }
 
 export default function ComplaintDetailPage() {
@@ -170,7 +170,7 @@ export default function ComplaintDetailPage() {
     );
   }
 
-  const grouped = groupComments(complaint.comments);
+  const tree = buildCommentTree(complaint.comments);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
@@ -233,23 +233,16 @@ export default function ComplaintDetailPage() {
           <div className="mt-5 rounded-2xl border border-black/8 bg-white p-6 dark:border-white/10 dark:bg-white/[0.03]">
             <h2 className="mb-4 font-display text-base font-semibold text-ink dark:text-white">Notes &amp; comments</h2>
             <div className="space-y-3">
-              {grouped.length === 0 && <p className="text-sm text-ink/50 dark:text-white/40">No comments yet.</p>}
-              {grouped.map((c) => (
-                <div key={c._id}>
-                  <AdminCommentRow
-                    comment={c}
-                    onReply={() => { setReplyingTo({ id: c._id, authorName: c.author?.name }); setNoteType(c.type); }}
-                    onEdit={handleEditComment}
-                    onDelete={handleDeleteComment}
-                  />
-                  {c.replies.length > 0 && (
-                    <div className="ml-9 mt-2 space-y-2 border-l-2 border-black/5 pl-3 dark:border-white/10">
-                      {c.replies.map((r) => (
-                        <AdminCommentRow key={r._id} comment={r} onEdit={handleEditComment} onDelete={handleDeleteComment} />
-                      ))}
-                    </div>
-                  )}
-                </div>
+              {tree.length === 0 && <p className="text-sm text-ink/50 dark:text-white/40">No comments yet.</p>}
+              {tree.map((c) => (
+                <AdminCommentNode
+                  key={c._id}
+                  comment={c}
+                  depth={0}
+                  onReplyClick={(target) => { setReplyingTo({ id: target._id, authorName: target.author?.name }); setNoteType(target.type); }}
+                  onEdit={handleEditComment}
+                  onDelete={handleDeleteComment}
+                />
               ))}
             </div>
 
@@ -406,6 +399,21 @@ export default function ComplaintDetailPage() {
         >
           <img src={lightboxUrl} alt="Complaint evidence, enlarged" className="max-h-full max-w-full rounded-lg object-contain" />
         </button>
+      )}
+    </div>
+  );
+}
+
+function AdminCommentNode({ comment, depth, onReplyClick, onEdit, onDelete }) {
+  return (
+    <div>
+      <AdminCommentRow comment={comment} onReply={() => onReplyClick(comment)} onEdit={onEdit} onDelete={onDelete} />
+      {comment.children.length > 0 && (
+        <div className={`${depth === 0 ? 'ml-9' : ''} mt-2 space-y-2 border-l-2 border-black/5 pl-3 dark:border-white/10`}>
+          {comment.children.map((child) => (
+            <AdminCommentNode key={child._id} comment={child} depth={depth + 1} onReplyClick={onReplyClick} onEdit={onEdit} onDelete={onDelete} />
+          ))}
+        </div>
       )}
     </div>
   );
