@@ -546,9 +546,9 @@ export const editComment = asyncHandler(async (req, res) => {
 // ---------------------------------------------------------------------
 // DELETE /api/complaints/:id/comments/:commentId
 //   comment's own author, OR staff (dept-scoped) clearing out nonsense.
-//   Deleting a top-level comment also removes any direct replies to it,
-//   since we only support one level of nesting — an orphaned reply to a
-//   comment that no longer exists would be confusing to read.
+//   Deleting a comment cascades to every reply beneath it, at any
+//   depth — an orphaned reply pointing at a deleted parent would be
+//   confusing to read.
 // ---------------------------------------------------------------------
 export const deleteComment = asyncHandler(async (req, res) => {
   const complaint = await Complaint.findById(req.params.id);
@@ -564,10 +564,22 @@ export const deleteComment = asyncHandler(async (req, res) => {
   }
   if (isStaff) assertStaffCanAccessComplaint(req.user, complaint);
 
-  const commentId = String(comment._id);
-  complaint.comments = complaint.comments.filter(
-    (cm) => String(cm._id) !== commentId && String(cm.parentId || '') !== commentId
-  );
+  // Collect the target comment plus every descendant reply (a reply's
+  // reply, and so on) — not just direct children, now that threads can
+  // go more than one level deep.
+  const toDelete = new Set([String(comment._id)]);
+  let growing = true;
+  while (growing) {
+    growing = false;
+    for (const cm of complaint.comments) {
+      const pid = String(cm.parentId || '');
+      if (pid && toDelete.has(pid) && !toDelete.has(String(cm._id))) {
+        toDelete.add(String(cm._id));
+        growing = true;
+      }
+    }
+  }
+  complaint.comments = complaint.comments.filter((cm) => !toDelete.has(String(cm._id)));
   await complaint.save();
 
   const populated = await Complaint.findById(complaint._id).populate(STAFF_POPULATE);
