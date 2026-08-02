@@ -93,7 +93,7 @@ export default function Sidebar({ children }) {
         {navContent}
       </aside>
 
-      <div className="flex min-h-screen flex-1 flex-col">
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-black/5 bg-paper/90 px-4 backdrop-blur-md dark:border-white/5 dark:bg-[#0b1211]/90">
           <button
             type="button"
@@ -110,7 +110,7 @@ export default function Sidebar({ children }) {
           </div>
         </header>
 
-        <main className="flex-1">{children}</main>
+        <main className="min-w-0 flex-1">{children}</main>
       </div>
 
       {mobileOpen && (
