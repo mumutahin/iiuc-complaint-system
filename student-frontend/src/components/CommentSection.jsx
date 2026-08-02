@@ -4,23 +4,17 @@ import { formatRelativeTime } from '../../../shared/formatters.js';
 import { validateCommentText } from '../../../shared/validators.js';
 import { LIMITS } from '../../../shared/constants.js';
 
-/**
- * Flat comments (each with a `parentId`) get grouped here into top-level
- * comments + their direct replies. We only ever support ONE level of
- * nesting (a reply can't itself be replied to — enforced by the
- * backend), which keeps both the data model and this UI simple.
- */
-function groupComments(comments) {
-  const topLevel = comments.filter((c) => !c.parentId);
-  const repliesByParent = new Map();
-  comments
-    .filter((c) => c.parentId)
-    .forEach((c) => {
-      const key = String(c.parentId);
-      if (!repliesByParent.has(key)) repliesByParent.set(key, []);
-      repliesByParent.get(key).push(c);
-    });
-  return topLevel.map((c) => ({ ...c, replies: repliesByParent.get(String(c._id)) || [] }));
+/** Builds a real tree from flat comments (each with a parentId), at any
+ * depth — a reply can now itself be replied to. */
+function buildCommentTree(comments) {
+  const byId = new Map(comments.map((c) => [String(c._id), { ...c, children: [] }]));
+  const roots = [];
+  for (const c of byId.values()) {
+    const parent = c.parentId && byId.get(String(c.parentId));
+    if (parent) parent.children.push(c);
+    else roots.push(c);
+  }
+  return roots;
 }
 
 export default function CommentSection({ comments = [], onAddComment, onEditComment, onDeleteComment, submitting }) {
@@ -41,28 +35,21 @@ export default function CommentSection({ comments = [], onAddComment, onEditComm
     setReplyingTo(null);
   }
 
-  const grouped = groupComments(comments);
+  const tree = buildCommentTree(comments);
 
   return (
     <div>
       <div className="space-y-4">
-        {grouped.length === 0 && <p className="text-sm text-ink/50 dark:text-white/40">No comments yet.</p>}
-        {grouped.map((c) => (
-          <div key={c._id}>
-            <CommentRow
-              comment={c}
-              onReply={() => setReplyingTo({ id: c._id, authorName: c.author?.name })}
-              onEdit={onEditComment}
-              onDelete={onDeleteComment}
-            />
-            {c.replies.length > 0 && (
-              <div className="ml-10 mt-2 space-y-2 border-l-2 border-black/5 pl-3 dark:border-white/10">
-                {c.replies.map((r) => (
-                  <CommentRow key={r._id} comment={r} onEdit={onEditComment} onDelete={onDeleteComment} />
-                ))}
-              </div>
-            )}
-          </div>
+        {tree.length === 0 && <p className="text-sm text-ink/50 dark:text-white/40">No comments yet.</p>}
+        {tree.map((c) => (
+          <CommentNode
+            key={c._id}
+            comment={c}
+            depth={0}
+            onReplyClick={(target) => setReplyingTo({ id: target._id, authorName: target.author?.name })}
+            onEdit={onEditComment}
+            onDelete={onDeleteComment}
+          />
         ))}
       </div>
 
@@ -97,6 +84,25 @@ export default function CommentSection({ comments = [], onAddComment, onEditComm
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+/** Renders one comment, then recurses into its children. Indent only
+ * grows for the first nesting step — deeper replies stay at the same
+ * visual indent (with the thread line still showing) so a long thread
+ * can't creep off the edge of a phone screen. */
+function CommentNode({ comment, depth, onReplyClick, onEdit, onDelete }) {
+  return (
+    <div>
+      <CommentRow comment={comment} onReply={() => onReplyClick(comment)} onEdit={onEdit} onDelete={onDelete} />
+      {comment.children.length > 0 && (
+        <div className={`${depth === 0 ? 'ml-8' : ''} mt-2 space-y-2 border-l-2 border-black/5 pl-3 dark:border-white/10`}>
+          {comment.children.map((child) => (
+            <CommentNode key={child._id} comment={child} depth={depth + 1} onReplyClick={onReplyClick} onEdit={onEdit} onDelete={onDelete} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
